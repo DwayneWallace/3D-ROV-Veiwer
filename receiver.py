@@ -1,6 +1,6 @@
 """Cross-platform, receive-only NMEA UDP viewer. Python 3.10+, standard library."""
-import argparse
-import datetime
+
+
 import json
 import math
 import pathlib
@@ -247,7 +247,7 @@ def update_source(source, sentence, now, sonardyne_depth=False):
                 source["last_valid_position"] = source["position"].copy()
 
 
-def receive(name, port, bind, capture, sonardyne_depth=False):
+def receive(name, port, bind, sonardyne_depth=False):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         udp_socket.bind((bind, port))
@@ -271,26 +271,6 @@ def receive(name, port, bind, capture, sonardyne_depth=False):
                 except (ValueError, IndexError) as exc:
                     source["parse_errors"] += 1
                     source["last_parse_error"] = str(exc)
-        if capture:
-            record = {"time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                      "source": name, "port": port, "sender": sender[0], "raw": message_text}
-            with capture.open("a", encoding="utf-8") as output:
-                output.write(json.dumps(record) + "\n")
-
-
-def demo():
-    while True:
-        now = time.time()
-        with LOCK:
-            for index, source in enumerate(STATE["sources"].values()):
-                source.update(last_packet=now, sender="SIMULATED", packets=source["packets"] + 1,
-                              position={"latitude": 0.0 + index * .0002 + math.sin(now / 20) * .0001,
-                                        "longitude": 0.0 + index * .0003,
-                                        "valid": True, "sentence": "DEMO", "checksum": "simulated",
-                                        "received": now})
-        time.sleep(.5)
-
-
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -319,49 +299,40 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--demo", action="store_true")
-    parser.add_argument("--raw", action="store_true", help="Listen to individual beacon feeds instead of Fusion outputs")
-    parser.add_argument("--sonardyne-depth", action="store_true",
-                        help="Enable vessel-tested depth profile: negative GGA altitude / PSONUSBL field 6")
-    parser.add_argument("--bind", default="0.0.0.0", help="Local IPv4 interface for UDP reception")
-    parser.add_argument("--http-port", default=8765, type=int)
-    parser.add_argument("--http-bind", default="127.0.0.1",
-                        help="Web interface address; use 0.0.0.0 for access from the vessel network")
-    parser.add_argument("--capture", type=pathlib.Path, help="Append received datagrams to a JSONL file")
-    args = parser.parse_args()
-    if args.raw:
-        feeds = {"ROV 2109": 10012, "ROV 2311": 10013,
-                 "ROV 2411": 10014, "Cage 2607": 10015}
-    else:
-        feeds = {"ROV": 10112, "Cage": 10113}
-    feeds["Boat"] = 10100
-    feeds["NMEA"] = 10110
-    STATE["demo"] = args.demo
+    # Listen on the vessel network. These are the ports from the Fusion setup.
+    network_address = "0.0.0.0"
+    web_port = 8765
+    feeds = {
+        "ROV": 10112,
+        "Cage": 10113,
+        "Boat": 10100,
+        "NMEA": 10110,
+    }
+
     for name, port in feeds.items():
         STATE["sources"][name] = {"port": port, "packets": 0, "parse_errors": 0}
-    server = ThreadingHTTPServer((args.http_bind, args.http_port), Handler)
-    if args.demo:
-        threading.Thread(target=demo, daemon=True).start()
-    else:
-        for name, port in feeds.items():
-            use_depth = args.sonardyne_depth and name not in ("Boat", "NMEA")
-            receiver_thread = threading.Thread(
-                target=receive,
-                args=(name, port, args.bind, args.capture, use_depth),
-                daemon=True,
-            )
-            receiver_thread.start()
 
-    print(viewer_addresses(args.http_bind, server.server_port), flush=True)
+    server = ThreadingHTTPServer((network_address, web_port), Handler)
+
+    for name, port in feeds.items():
+        # Only the underwater targets use the Sonardyne depth mapping.
+        use_depth = name == "ROV" or name == "Cage"
+        receiver_thread = threading.Thread(
+            target=receive,
+            args=(name, port, network_address, use_depth),
+            daemon=True,
+        )
+        receiver_thread.start()
+
+    print(viewer_addresses(network_address, web_port), flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         server.server_close()
 
-
 if __name__ == "__main__":
     main()
+
 
 
 
