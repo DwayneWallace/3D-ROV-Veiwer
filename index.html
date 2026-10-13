@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ROV Position</title>
+    <style>
+        body {
+            font: 14px Arial, sans-serif;
+            margin: 16px;
+            color: #111;
+            background: white;
+        }
+        h1 {
+            font-size: 22px;
+            margin: 0 0 12px;
+        }
+        #velocity-line {
+            margin-bottom: 12px;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 62vh;
+            min-height: 300px;
+            border: 1px solid #aaa;
+            touch-action: none;
+        }
+        table {
+            border-collapse: collapse;
+            margin-top: 16px;
+            width: 100%;
+            font: 13px monospace;
+        }
+        th, td {
+            border: 1px solid #aaa;
+            padding: 7px;
+            text-align: left;
+        }
+        #readings {
+            overflow: auto;
+        }
+        #status {
+            margin-left: 16px;
+        }
+        tr.stale td {
+            background: #ffd6d6;
+            border-color: #c33;
+            color: #800;
+        }
+    </style>
+</head>
+<body>
+    <h1>ROV Position</h1>
+    <div style="margin-bottom:12px"><label>Sea floor depth (m): <input id="floor-depth" type="number" min="0" step="0.1" value="30" style="width:90px"></label></div>
+    <div id="velocity-line">
+        Cage Velocity: <span id="cage-velocity">— m/s</span>
+        <span id="status"></span>
+    </div>
+
+    <canvas id="view" aria-label="3D boat and underwater positions" tabindex="0"></canvas>
+
+    <div id="readings">
+        <table>
+            <thead>
+                <tr>
+                    <th>Target</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Depth (m)</th>
+                    <th>Heading (°)</th>
+                    <th>Roll (°)</th>
+                    <th>Pitch (°)</th>
+                </tr>
+            </thead>
+            <tbody id="data"></tbody>
+        </table>
+    </div>
+
+    <script src="/scene.js"></script>
+</body>
+</html>
+
