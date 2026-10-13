@@ -54,8 +54,8 @@ function sources() {
 
     return {
         Boat: boat,
-        ROV: state.sources.ROV || state.sources['ROV 2109'] || {},
-        Cage: state.sources.Cage || state.sources['Cage 2607'] || {}
+        ROV: state.sources.ROV || {},
+        Cage: state.sources.Cage || {}
     };
 }
 
@@ -304,4 +304,5 @@ draw();
 document.getElementById('floor-depth').addEventListener('input', function () {
     dirty = true;
 });
+
 
